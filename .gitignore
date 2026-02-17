@@ -52,12 +52,8 @@ Reports/
 test.bin
 test.py
 
-# Firmware binaries (build artifacts - not tracked)
-firmwares/*.bin
-firmwares/*.blf
-*.bin
-
-# Encrypted firmware at root (should be in firmwares/)
+# Firmware binaries at root only (keep firmwares/ tracked)
+/*.bin
 /LYNKXF*.blf
 
 # Refactoring documentation (temporary)
