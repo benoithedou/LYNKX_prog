@@ -1,0 +1,8 @@
+opencv-python
+numpy
+pyzbar
+pyserial
+sounddevice
+fpdf2
+requests
+pycryptodomex

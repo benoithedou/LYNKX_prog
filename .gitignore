@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# macOS
+.DS_Store
+._*
+
+# Logs
+*.log
+log.txt
+
+# Test outputs
+Reports/
+*.pdf
+
+# Claude Code
+.claude/
+
+# Temporary files
+test.bin
+test.py
+
+# Firmware binaries (build artifacts - not tracked)
+firmwares/*.bin
+firmwares/*.blf
+*.bin
+
+# Encrypted firmware at root (should be in firmwares/)
+/LYNKXF*.blf
+
+# Refactoring documentation (temporary)
+REFACTORING_COMPLETE.md
+START_HERE.md
+TEST_APPLICATION.sh
+run_tools.sh
+
+# C files (not part of Python project)
+*.c
+*.h
