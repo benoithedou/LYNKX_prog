@@ -65,7 +65,6 @@ class TestRunner:
 
         self._running = False
         self._stop_event = threading.Event()
-        self._paused = False  # Pause loop during LED click / audio
 
         # LED click counter (managed by UI, incremented via on_led_click)
         self._led_cnt = 0
@@ -112,18 +111,14 @@ class TestRunner:
     def on_led_click(self) -> None:
         """Called by UI when user clicks a LED checkbox.
 
-        Sends 'T' to device and advances to next LED or triggers audio test.
+        Mirrors original: runs on UI thread for LED state, spawns thread for audio.
+        Serial write is safe (SerialManager has a lock).
+        The read loop keeps running in parallel (same as original production_test.py).
         """
-        # Run in worker thread to avoid blocking UI and serial conflicts
-        threading.Thread(target=self._handle_led_click, daemon=True).start()
-
-    def _handle_led_click(self) -> None:
-        """Worker thread for LED click handling."""
-        self._paused = True  # Pause the read loop
         try:
             self._serial.write(b'T')
-        except Exception:
-            pass
+        except Exception as e:
+            self._log(f"  -> Serial write error: {e}")
 
         name = TEST_NAMES[self._led_cnt]
         self._check_test(name, True)
@@ -138,14 +133,12 @@ class TestRunner:
             self._log("")
             self._log(f">>> {prompt}")
             self._enable_checkbox(next_name)
-            self._paused = False  # Resume read loop
         else:
-            # After 5th LED click -> audio test (loop stays paused)
+            # After 5th LED click -> audio test in separate thread
+            # (don't block UI, read loop keeps running like original)
             self._log("")
             self._log(">>> SOUND test: Recording audio (3s)...")
-            self._run_audio_test()
-            # Resume read loop after audio completes
-            self._paused = False
+            threading.Thread(target=self._run_audio_test, daemon=True).start()
 
     # ------------------------------------------------------------------
     # Main loop
@@ -161,10 +154,6 @@ class TestRunner:
 
         while not self._stop_event.is_set():
             time.sleep(0.1)
-
-            # Skip reading while paused (LED click / audio in progress)
-            if self._paused:
-                continue
 
             try:
                 line = self._serial.readline()
@@ -351,9 +340,16 @@ class TestRunner:
             self._log(f"[AUDIO INIT] Warmup error: {e}")
 
     def _run_audio_test(self) -> None:
-        """Record 3 seconds of audio and validate power levels."""
+        """Record 3 seconds of audio and validate power levels.
+
+        ALWAYS sends 'T' or 'S' to device to avoid blocking.
+        """
         if sd is None:
-            self._log("[AUDIO] sounddevice not available - skipping")
+            self._log("[AUDIO] sounddevice not available - sending T to continue")
+            try:
+                self._serial.write(b'T')
+            except Exception:
+                pass
             return
 
         self._log("🎤 Recording audio (3s)...")
@@ -388,6 +384,11 @@ class TestRunner:
 
         except Exception as e:
             self._log(f"[AUDIO] Error: {e}")
+            # ALWAYS send response to avoid blocking device
+            try:
+                self._serial.write(b'S')
+            except Exception:
+                pass
 
     @staticmethod
     def _calculate_power(signal: np.ndarray) -> float:
