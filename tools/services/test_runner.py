@@ -217,9 +217,10 @@ class TestRunner:
             self._log("")
             self._log("=== AUTO: Pressure Sensor ===")
             if self._state.device_type == DEVICE_TYPE_SUMMIT:
-                self._log("  -> No barometer detected (expected for SUMMIT)")
+                self._log("  -> No barometer detected (unexpected for SUMMIT)")
             else:
                 self._log("  -> No barometer (normal for LYNKX+)")
+            # Always send 'T' to let device continue
             try:
                 self._serial.write(b'T')
             except Exception:
@@ -231,19 +232,23 @@ class TestRunner:
             self._log("")
             self._log("=== AUTO: Pressure Sensor ===")
             if self._state.device_type != DEVICE_TYPE_SUMMIT:
-                self._log("  -> Barometer detected (unexpected for LYNKX+)")
+                # LYNKX+ standard: ignore barometer but still let device continue
+                self._log("  -> Barometer ignored (LYNKX+ standard)")
             else:
+                # SUMMIT: validate pressure
                 try:
                     tab = chaine.split()
                     self._sensor_pressure = round(int(tab[7]) / 100)
                     self._log(f"  -> Sensor pressure: {self._sensor_pressure} mbar")
                     self._check_pressure()
+                    return  # check_pressure sends 'T' or 'S'
                 except (IndexError, ValueError) as e:
                     self._log(f"  -> Pressure parse error: {e}")
-                    try:
-                        self._serial.write(b'S')
-                    except Exception:
-                        pass
+            # Always send 'T' to let device continue (except SUMMIT which is handled above)
+            try:
+                self._serial.write(b'T')
+            except Exception:
+                pass
             return
 
         # ACCELEROMETER
