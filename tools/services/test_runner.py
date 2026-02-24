@@ -65,6 +65,7 @@ class TestRunner:
 
         self._running = False
         self._stop_event = threading.Event()
+        self._paused = False  # Pause loop during LED click / audio
 
         # LED click counter (managed by UI, incremented via on_led_click)
         self._led_cnt = 0
@@ -113,6 +114,12 @@ class TestRunner:
 
         Sends 'T' to device and advances to next LED or triggers audio test.
         """
+        # Run in worker thread to avoid blocking UI and serial conflicts
+        threading.Thread(target=self._handle_led_click, daemon=True).start()
+
+    def _handle_led_click(self) -> None:
+        """Worker thread for LED click handling."""
+        self._paused = True  # Pause the read loop
         try:
             self._serial.write(b'T')
         except Exception:
@@ -128,14 +135,17 @@ class TestRunner:
             # Enable next LED checkbox with prompt
             next_name = TEST_NAMES[self._led_cnt]
             prompt = self._led_prompts.get(next_name, "")
-            self._log(f"")
+            self._log("")
             self._log(f">>> {prompt}")
             self._enable_checkbox(next_name)
+            self._paused = False  # Resume read loop
         else:
-            # After 5th LED click -> audio test
+            # After 5th LED click -> audio test (loop stays paused)
             self._log("")
             self._log(">>> SOUND test: Recording audio (3s)...")
             self._run_audio_test()
+            # Resume read loop after audio completes
+            self._paused = False
 
     # ------------------------------------------------------------------
     # Main loop
@@ -151,6 +161,10 @@ class TestRunner:
 
         while not self._stop_event.is_set():
             time.sleep(0.1)
+
+            # Skip reading while paused (LED click / audio in progress)
+            if self._paused:
+                continue
 
             try:
                 line = self._serial.readline()

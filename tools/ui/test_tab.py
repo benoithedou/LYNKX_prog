@@ -378,6 +378,9 @@ class TestTab:
             widget.unbind('<Button-1>')
             # Delegate to test runner (sends 'T' to device, advances)
             self._test_runner.on_led_click()
+        # Return "break" to prevent tkinter default toggle
+        # (which would un-check the box we just checked)
+        return "break"
 
     # ------------------------------------------------------------------
     # Restart / Reset
