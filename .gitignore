@@ -60,7 +60,6 @@ test.py
 REFACTORING_COMPLETE.md
 START_HERE.md
 TEST_APPLICATION.sh
-run_tools.sh
 
 # C files (not part of Python project)
 *.c
