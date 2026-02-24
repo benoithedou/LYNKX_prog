@@ -396,6 +396,20 @@ class TestTab:
         self._reset_labels()
         self.terminal.clear()
 
+        # Open serial port if not already open
+        if not self.serial_manager.is_open:
+            port = self.state.serial_port
+            if not port:
+                messagebox.showerror("Error", "No serial port selected")
+                return
+            try:
+                self.serial_manager.open(port)
+                self.state.set_serial_connected(True, port)
+                self.terminal.add_line(f"Serial port {port} opened")
+            except Exception as e:
+                messagebox.showerror("Error", f"Cannot open serial port: {e}")
+                return
+
         # Send reset commands to device
         try:
             self.serial_manager.write(b'S')
