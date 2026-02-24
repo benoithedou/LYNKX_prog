@@ -69,6 +69,15 @@ class TestRunner:
         # LED click counter (managed by UI, incremented via on_led_click)
         self._led_cnt = 0
 
+        # Prompts for each manual LED test
+        self._led_prompts = {
+            "LED_GREEN1": "Verify GREEN LED 1 is ON, then check the box",
+            "LED_GREEN2": "Verify GREEN LED 2 is ON, then check the box",
+            "LED_RED1": "Verify RED LED 1 is ON, then check the box",
+            "LED_RED2": "Verify RED LED 2 is ON, then check the box",
+            "LED_FLASH": "Verify LEDs are FLASHING, then check the box",
+        }
+
         # Measurement results
         self._sensor_pressure = 0.0
         self._max_freq_ble = 0.0
@@ -111,16 +120,22 @@ class TestRunner:
 
         name = TEST_NAMES[self._led_cnt]
         self._check_test(name, True)
+        self._log(f"  -> {name} OK")
 
-        if self._led_cnt < 4:
-            # Enable next LED checkbox
-            next_name = TEST_NAMES[self._led_cnt + 1]
+        self._led_cnt += 1
+
+        if self._led_cnt < 5:
+            # Enable next LED checkbox with prompt
+            next_name = TEST_NAMES[self._led_cnt]
+            prompt = self._led_prompts.get(next_name, "")
+            self._log(f"")
+            self._log(f">>> {prompt}")
             self._enable_checkbox(next_name)
         else:
             # After 5th LED click -> audio test
+            self._log("")
+            self._log(">>> SOUND test: Recording audio (3s)...")
             self._run_audio_test()
-
-        self._led_cnt += 1
 
     # ------------------------------------------------------------------
     # Main loop
@@ -163,13 +178,20 @@ class TestRunner:
 
         # LED_GREEN1 - start of LED test sequence
         if "LED_GREEN1" in chaine:
+            self._log("")
+            self._log("=== VISUAL LED TESTS ===")
+            prompt = self._led_prompts["LED_GREEN1"]
+            self._log(f">>> {prompt}")
             self._enable_checkbox("LED_GREEN1")
             return
 
         # BC_STATE (Battery Charger)
         if "BC State OK" in chaine:
+            self._log("")
+            self._log("=== AUTO: Battery Charger State ===")
             self._check_test("BC_STATE", True)
             self._state.set_test_result("BC_STATE", True)
+            self._log("  -> BC_STATE OK")
             try:
                 self._serial.write(b'T')
             except Exception:
@@ -178,9 +200,12 @@ class TestRunner:
 
         # Pressure - No barometer
         if "No barometer" in chaine:
+            self._log("")
+            self._log("=== AUTO: Pressure Sensor ===")
             if self._state.device_type == DEVICE_TYPE_SUMMIT:
-                # SUMMIT should have barometer - ignore this message
-                pass
+                self._log("  -> No barometer detected (expected for SUMMIT)")
+            else:
+                self._log("  -> No barometer (normal for LYNKX+)")
             try:
                 self._serial.write(b'T')
             except Exception:
@@ -189,17 +214,18 @@ class TestRunner:
 
         # Pressure - Barometer reading
         if "Barometer" in chaine:
+            self._log("")
+            self._log("=== AUTO: Pressure Sensor ===")
             if self._state.device_type != DEVICE_TYPE_SUMMIT:
-                # Standard LYNKX+ doesn't have barometer - ignore
-                pass
+                self._log("  -> Barometer detected (unexpected for LYNKX+)")
             else:
                 try:
                     tab = chaine.split()
                     self._sensor_pressure = round(int(tab[7]) / 100)
-                    self._log(f"       {chaine.replace(chr(92) + 't', '')}")
+                    self._log(f"  -> Sensor pressure: {self._sensor_pressure} mbar")
                     self._check_pressure()
                 except (IndexError, ValueError) as e:
-                    self._log(f"       Pressure parse error: {e}")
+                    self._log(f"  -> Pressure parse error: {e}")
                     try:
                         self._serial.write(b'S')
                     except Exception:
@@ -208,8 +234,11 @@ class TestRunner:
 
         # ACCELEROMETER
         if "Accelerometer OK" in chaine:
+            self._log("")
+            self._log("=== AUTO: Accelerometer ===")
             self._check_test("ACCELEROMETER", True)
             self._state.set_test_result("ACCELEROMETER", True)
+            self._log("  -> ACCELEROMETER OK")
             try:
                 self._serial.write(b'T')
             except Exception:
@@ -218,18 +247,25 @@ class TestRunner:
 
         # BLE RF test
         if "BLE Initialized" in chaine:
+            self._log("")
+            self._log("=== AUTO: BLE RF Measurement ===")
             self._run_ble_test()
             return
 
         # LoRa RF test
         if "LoRa Initialized" in chaine:
+            self._log("")
+            self._log("=== AUTO: LoRa RF Measurement ===")
             self._run_lora_test()
             return
 
         # GNSS
         if "GNSS OK" in chaine:
+            self._log("")
+            self._log("=== AUTO: GNSS Module ===")
             self._check_test("GNSS", True)
             self._state.set_test_result("GNSS", True)
+            self._log("  -> GNSS OK")
             try:
                 self._serial.write(b'T')
             except Exception:
@@ -238,8 +274,11 @@ class TestRunner:
 
         # Flash
         if "Flash OK" in chaine:
+            self._log("")
+            self._log("=== AUTO: Flash Memory ===")
             self._check_test("FLASH", True)
             self._state.set_test_result("FLASH", True)
+            self._log("  -> FLASH OK")
             try:
                 self._serial.write(b'T')
             except Exception:
@@ -248,8 +287,11 @@ class TestRunner:
 
         # Emergency tab
         if "Emergency tab OK" in chaine:
+            self._log("")
+            self._log("=== AUTO: Emergency Tab ===")
             self._check_test("EMERGENCY_TAB", True)
             self._state.set_test_result("EMERGENCY_TAB", True)
+            self._log("  -> EMERGENCY_TAB OK")
             try:
                 self._serial.write(b'T')
             except Exception:
