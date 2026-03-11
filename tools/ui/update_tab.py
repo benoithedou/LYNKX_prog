@@ -2,8 +2,9 @@
 import threading
 import os
 import glob
-from tkinter import Frame, Button, Label, StringVar, LabelFrame, Checkbutton, BooleanVar
+from tkinter import Frame, Button, Label, StringVar, IntVar, LabelFrame, Checkbutton, BooleanVar, Spinbox
 from tkinter import filedialog, messagebox
+from tkinter import ttk
 
 from ui.terminal_widget import TerminalWidget
 from services.state_manager import AppState
@@ -11,6 +12,9 @@ from services.test_workflow import TestWorkflow, TestWorkflowError
 from core.serial_manager import SerialManager
 from core.lynkx_protocol import LYNKXProtocol
 from firmware.encryption import FirmwareEncryption
+from device.config import BeaconSettings, UserSettings
+from device.bootloader import Bootloader
+from utils.constants import BEACON_SETTINGS_ADDRESS, USER_SETTINGS_ADDRESS
 
 
 class UpdateTab:
@@ -123,6 +127,16 @@ class UpdateTab:
             command=self._on_backup_toggle
         ).pack(anchor="w")
 
+        # Write settings checkbox (beacon + user settings after programming)
+        self.en_write_settings_var = BooleanVar(value=True)
+        Checkbutton(
+            options_frame,
+            text="Write settings",
+            variable=self.en_write_settings_var,
+            bg="white",
+            fg="black"
+        ).pack(anchor="w")
+
         # Action buttons
         Button(
             self.frame,
@@ -142,6 +156,62 @@ class UpdateTab:
             font=('Helvetica', 12, 'bold')
         ).grid(row=2, column=1, pady=10, padx=5)
 
+        # --- Beacon Settings (production config) ---
+        beacon_frame = LabelFrame(self.frame, text="Beacon Settings", bg="white", fg="black")
+        beacon_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=5, pady=2)
+
+        self.beacon_ble_scanner_var = BooleanVar(value=False)
+        self.beacon_gnss_var = BooleanVar(value=True)
+        self.beacon_p2p_var = BooleanVar(value=True)
+        self.beacon_lora_repeater_var = BooleanVar(value=False)
+        self.beacon_notification_var = BooleanVar(value=True)
+        self.beacon_auto_pwr_off_var = BooleanVar(value=False)
+        self.beacon_auto_pwr_off_delay_var = IntVar(value=0)
+
+        Checkbutton(beacon_frame, text="BLE Scanner", variable=self.beacon_ble_scanner_var,
+                    bg="white", fg="black", selectcolor="white").grid(row=0, column=0, padx=5, sticky="w")
+        Checkbutton(beacon_frame, text="GNSS", variable=self.beacon_gnss_var,
+                    bg="white", fg="black", selectcolor="white").grid(row=0, column=1, padx=5, sticky="w")
+        Checkbutton(beacon_frame, text="P2P", variable=self.beacon_p2p_var,
+                    bg="white", fg="black", selectcolor="white").grid(row=0, column=2, padx=5, sticky="w")
+        Checkbutton(beacon_frame, text="LoRa Repeater", variable=self.beacon_lora_repeater_var,
+                    bg="white", fg="black", selectcolor="white").grid(row=0, column=3, padx=5, sticky="w")
+        Checkbutton(beacon_frame, text="Notification", variable=self.beacon_notification_var,
+                    bg="white", fg="black", selectcolor="white").grid(row=1, column=0, padx=5, sticky="w")
+        Checkbutton(beacon_frame, text="Auto Power Off", variable=self.beacon_auto_pwr_off_var,
+                    bg="white", fg="black", selectcolor="white").grid(row=1, column=1, padx=5, sticky="w")
+        Label(beacon_frame, text="Delay (min):", bg="white", fg="black").grid(row=1, column=2, padx=2, sticky="e")
+        Spinbox(beacon_frame, from_=0, to=65535, width=6, textvariable=self.beacon_auto_pwr_off_delay_var,
+                bg="white", fg="black").grid(row=1, column=3, padx=5, sticky="w")
+
+        # --- User Settings ---
+        user_frame = LabelFrame(self.frame, text="User Settings", bg="white", fg="black")
+        user_frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=5, pady=2)
+
+        self.user_inactivity_var = StringVar(value="Off")
+        self.user_power_profile_var = StringVar(value="Balanced")
+        self.user_power_on_charging_var = BooleanVar(value=True)
+
+        Label(user_frame, text="Inactivity:", bg="white", fg="black").grid(row=0, column=0, padx=2, sticky="e")
+        ttk.Combobox(user_frame, textvariable=self.user_inactivity_var, width=8,
+                     values=["Off", "30s", "60s", "120s", "180s", "300s"],
+                     state="readonly").grid(row=0, column=1, padx=5, sticky="w")
+        Label(user_frame, text="Power Profile:", bg="white", fg="black").grid(row=0, column=2, padx=2, sticky="e")
+        ttk.Combobox(user_frame, textvariable=self.user_power_profile_var, width=10,
+                     values=["Perf", "Balanced", "Eco", "Eco2"],
+                     state="readonly").grid(row=0, column=3, padx=5, sticky="w")
+        Checkbutton(user_frame, text="Power On Charging", variable=self.user_power_on_charging_var,
+                    bg="white", fg="black", selectcolor="white").grid(row=0, column=4, padx=5, sticky="w")
+
+        # --- Write Config standalone button ---
+        Button(
+            self.frame,
+            text="Write Config",
+            command=self._run_write_config,
+            bg="lightyellow",
+            fg="black"
+        ).grid(row=5, column=0, pady=5, padx=5)
+
         # Terminal
         terminal_frame = LabelFrame(
             self.frame,
@@ -149,12 +219,12 @@ class UpdateTab:
             bg="white",
             fg="black"
         )
-        terminal_frame.grid(row=3, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
+        terminal_frame.grid(row=6, column=0, columnspan=3, sticky="nsew", padx=5, pady=5)
 
         self.terminal = TerminalWidget(terminal_frame, enable_log=False)
 
         # Configure grid weights
-        self.frame.rowconfigure(3, weight=1)
+        self.frame.rowconfigure(6, weight=1)
         self.frame.columnconfigure(0, weight=1)
         self.frame.columnconfigure(1, weight=1)
 
@@ -177,6 +247,85 @@ class UpdateTab:
         if path:
             self.state.backup_firmware_path = path
             self.backup_fw_var.set(self._get_display_path(path))
+
+    def _build_beacon_settings(self) -> BeaconSettings:
+        """Build BeaconSettings from UI variables."""
+        return BeaconSettings(
+            ble_scanner=int(self.beacon_ble_scanner_var.get()),
+            gnss_en=int(self.beacon_gnss_var.get()),
+            p2p_en=int(self.beacon_p2p_var.get()),
+            lora_repeater=int(self.beacon_lora_repeater_var.get()),
+            notification_en=int(self.beacon_notification_var.get()),
+            auto_power_off_en=int(self.beacon_auto_pwr_off_var.get()),
+            auto_power_off_delay=self.beacon_auto_pwr_off_delay_var.get()
+        )
+
+    def _build_user_settings(self) -> UserSettings:
+        """Build UserSettings from UI variables."""
+        return UserSettings(
+            inactivity_duration=UserSettings.INACTIVITY_MAP.get(self.user_inactivity_var.get(), 0),
+            power_profile=UserSettings.PROFILE_MAP.get(self.user_power_profile_var.get(), 1),
+            power_on_charging=int(self.user_power_on_charging_var.get())
+        )
+
+    def _run_write_config(self) -> None:
+        """Run standalone config write."""
+        thread = threading.Thread(target=self._write_config_worker, daemon=True)
+        thread.start()
+
+    def _write_config_worker(self) -> None:
+        """Write config worker thread."""
+        self.terminal.clear()
+
+        def log(msg: str):
+            self.terminal.add_line(msg)
+
+        try:
+            log("--- Write Config ---")
+
+            # Open serial if needed
+            if not self.serial_manager.is_open:
+                port = self.state.serial_port
+                if not port:
+                    raise Exception("No serial port selected")
+                log(f"🔌 Opening {port}...")
+                self.serial_manager.open(port)
+                self.state.set_serial_connected(True, port)
+
+            # Wait for device
+            log("⏳ Waiting for LYNKX+...")
+            if not self.serial_manager.wait_for_device(timeout=10.0):
+                raise Exception("Device not detected")
+            log("✅ LYNKX+ connected")
+
+            self.serial_manager.set_timeout(4.0)
+            bootloader = Bootloader(self.serial_manager)
+
+            # Write beacon settings
+            beacon = self._build_beacon_settings()
+            log(f"⚙️  Writing beacon settings @ 0x{BEACON_SETTINGS_ADDRESS:08X}...")
+            bootloader.write_external_memory(beacon.to_bytes(), address=BEACON_SETTINGS_ADDRESS)
+            log("✓ Beacon settings written")
+
+            # Write user settings
+            user = self._build_user_settings()
+            log(f"⚙️  Writing user settings @ 0x{USER_SETTINGS_ADDRESS:08X}...")
+            bootloader.write_external_memory(user.to_bytes(), address=USER_SETTINGS_ADDRESS)
+            log("✓ User settings written")
+
+            log("--- Config written ---")
+
+        except Exception as e:
+            log(f"❌ Error: {str(e)}")
+
+        finally:
+            try:
+                if self.serial_manager.is_open:
+                    self.serial_manager.close()
+                    self.state.set_serial_connected(False)
+                    log("🔌 Port closed")
+            except Exception:
+                pass
 
     def _on_backup_toggle(self) -> None:
         """Handle backup checkbox toggle."""
@@ -242,10 +391,16 @@ class UpdateTab:
             backup_path = self.state.backup_firmware_path if self.en_backup_var.get() else None
             write_config = self.en_config_var.get()
 
+            # Build settings from UI if write settings is enabled
+            beacon_settings = self._build_beacon_settings() if self.en_write_settings_var.get() else None
+            user_settings = self._build_user_settings() if self.en_write_settings_var.get() else None
+
             success = workflow.run_firmware_update(
                 self.state.update_firmware_path,
                 backup_path,
-                write_config
+                write_config,
+                beacon_settings,
+                user_settings
             )
 
             # Check if stopped - don't show result messages

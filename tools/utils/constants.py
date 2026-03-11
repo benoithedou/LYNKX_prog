@@ -66,6 +66,8 @@ PRODUCT_REF_SUMMIT = b'LYNKX+ SUMMIT   '
 MEMORY_INT_BASE = 0x08006000  # Internal flash base address
 MEMORY_EXT_BASE = 0x00000000  # External flash base address
 MEMORY_EXT_BACKUP = 0x001C0000  # External flash backup address
+BEACON_SETTINGS_ADDRESS = 0x00044000  # Sector 68 - Beacon settings
+USER_SETTINGS_ADDRESS = 0x00045000  # Sector 69 - User settings
 
 # Firmware Encryption
 AES_KEY = bytes([0x3d, 0x0b, 0x0a, 0x8a, 0x1b, 0x5d, 0x17, 0xe2,

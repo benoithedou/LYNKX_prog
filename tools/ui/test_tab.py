@@ -275,12 +275,14 @@ class TestTab:
                 log("❌ Configuration failed")
 
         except TestWorkflowError as e:
-            log(f"❌ Configuration error: {str(e)}")
-            self.frame.after(0, lambda: messagebox.showerror("Configuration Error", str(e)))
+            msg = str(e)
+            log(f"❌ Configuration error: {msg}")
+            self.frame.after(0, lambda m=msg: messagebox.showerror("Configuration Error", m))
 
         except Exception as e:
-            log(f"❌ Unexpected error: {str(e)}")
-            self.frame.after(0, lambda: messagebox.showerror("Error", f"Unexpected error: {str(e)}"))
+            msg = str(e)
+            log(f"❌ Unexpected error: {msg}")
+            self.frame.after(0, lambda m=msg: messagebox.showerror("Error", f"Unexpected error: {m}"))
 
     def _start_test_runner(self) -> None:
         """Create and start the test runner."""

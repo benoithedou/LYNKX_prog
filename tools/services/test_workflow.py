@@ -5,8 +5,8 @@ from typing import Optional, Callable
 from services.state_manager import AppState
 from core.serial_manager import SerialManager
 from device.bootloader import Bootloader, BootloaderError
-from utils.constants import MEMORY_EXT_BACKUP
-from device.config import DeviceConfig
+from utils.constants import MEMORY_EXT_BACKUP, BEACON_SETTINGS_ADDRESS, USER_SETTINGS_ADDRESS
+from device.config import DeviceConfig, BeaconSettings, UserSettings
 from firmware.encryption import FirmwareEncryption
 
 
@@ -172,6 +172,7 @@ class TestWorkflow:
 
             self._bootloader.write_external_memory(
                 backup_firmware_data,
+                address=MEMORY_EXT_BACKUP,
                 progress_callback=progress_callback
             )
             self._log("✓ Backup firmware written")
@@ -205,7 +206,9 @@ class TestWorkflow:
         self,
         firmware_path: str,
         backup_firmware_path: Optional[str] = None,
-        write_config: bool = True
+        write_config: bool = True,
+        beacon_settings: Optional[BeaconSettings] = None,
+        user_settings: Optional[UserSettings] = None
     ) -> bool:
         """
         Run firmware update workflow.
@@ -216,6 +219,8 @@ class TestWorkflow:
             firmware_path: Path to firmware
             backup_firmware_path: Path to backup firmware (optional)
             write_config: Whether to write device configuration
+            beacon_settings: Beacon settings to write (None to skip)
+            user_settings: User settings to write (None to skip)
 
         Returns:
             True if successful
@@ -281,6 +286,22 @@ class TestWorkflow:
                 self._log("✓ Backup written")
             else:
                 self._log("⏭️  Backup skipped (disabled)")
+
+            # Write settings to external flash
+            if beacon_settings:
+                self._log("⚙️  Writing beacon settings...")
+                self._bootloader.write_external_memory(
+                    beacon_settings.to_bytes(),
+                    address=BEACON_SETTINGS_ADDRESS
+                )
+                self._log("✓ Beacon settings written")
+            if user_settings:
+                self._log("⚙️  Writing user settings...")
+                self._bootloader.write_external_memory(
+                    user_settings.to_bytes(),
+                    address=USER_SETTINGS_ADDRESS
+                )
+                self._log("✓ User settings written")
 
             # Configure device (only if write_config is enabled)
             if write_config:

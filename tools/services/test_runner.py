@@ -96,6 +96,8 @@ class TestRunner:
         self._stop_event.clear()
         self._led_cnt = 0
         self._running = True
+        # Block terminal reader loop from stealing serial data
+        self._serial.enter_exclusive_mode()
         thread = threading.Thread(target=self._run_loop, daemon=True)
         thread.start()
 
@@ -103,6 +105,8 @@ class TestRunner:
         """Stop the test loop."""
         self._stop_event.set()
         self._running = False
+        # Release serial for terminal reader loop
+        self._serial.exit_exclusive_mode()
 
     @property
     def running(self) -> bool:
@@ -149,15 +153,14 @@ class TestRunner:
         # Warmup microphone
         self._warmup_microphone()
 
-        # Set short timeout for readline
-        self._serial.set_timeout(0.2)
+        # Set short timeout for readline (just enough to not busy-loop)
+        self._serial.set_timeout(0.1)
 
         while not self._stop_event.is_set():
-            time.sleep(0.1)
-
             try:
                 line = self._serial.readline()
             except Exception:
+                time.sleep(0.05)
                 continue
 
             if not line:
@@ -622,6 +625,7 @@ class TestRunner:
         self._tests_complete()
 
         self._serial.close()
+        self._serial.exit_exclusive_mode()
         self._running = False
 
     def _update_firmware(self) -> None:

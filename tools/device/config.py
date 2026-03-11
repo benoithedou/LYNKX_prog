@@ -9,6 +9,7 @@ from utils.constants import (
     HW_VERSION_1_02,
     HW_VERSION_1_04
 )
+from utils.crc import calculate_crc8
 
 
 class DeviceConfig:
@@ -158,3 +159,79 @@ class DeviceConfig:
             f"hw={self.hardware_version}, "
             f"mac={self.mac_address})"
         )
+
+
+class BeaconSettings:
+    """Beacon settings (production config, not user-accessible)."""
+
+    STRUCT_SIZE = 128  # Total size of beacon_settings_t
+
+    def __init__(
+        self,
+        ble_scanner: int = 0,
+        gnss_en: int = 1,
+        p2p_en: int = 1,
+        lora_repeater: int = 0,
+        notification_en: int = 1,
+        auto_power_off_en: int = 0,
+        auto_power_off_delay: int = 0
+    ):
+        self.ble_scanner = ble_scanner
+        self.gnss_en = gnss_en
+        self.p2p_en = p2p_en
+        self.lora_repeater = lora_repeater
+        self.notification_en = notification_en
+        self.auto_power_off_en = auto_power_off_en
+        self.auto_power_off_delay = auto_power_off_delay  # uint16_t, minutes
+
+    def to_bytes(self) -> bytes:
+        """Build 128-byte beacon_settings_t struct with CRC."""
+        data = bytearray(self.STRUCT_SIZE)
+        data[0] = 8  # settings_number: 8 bytes of params
+        data[1] = self.ble_scanner & 0xFF
+        data[2] = self.gnss_en & 0xFF
+        data[3] = self.p2p_en & 0xFF
+        data[4] = self.lora_repeater & 0xFF
+        data[5] = self.notification_en & 0xFF
+        data[6] = self.auto_power_off_en & 0xFF
+        data[7] = self.auto_power_off_delay & 0xFF          # uint16_t low byte
+        data[8] = (self.auto_power_off_delay >> 8) & 0xFF   # uint16_t high byte
+        # RFU bytes 9..126 = 0xFF
+        for i in range(9, self.STRUCT_SIZE - 1):
+            data[i] = 0xFF
+        # CRC-8 over first 127 bytes
+        data[self.STRUCT_SIZE - 1] = calculate_crc8(bytes(data[:self.STRUCT_SIZE - 1]))
+        return bytes(data)
+
+
+class UserSettings:
+    """User settings (modifiable by end user via app)."""
+
+    STRUCT_SIZE = 128  # Total size of user_settings_t
+
+    INACTIVITY_MAP = {"Off": 0, "30s": 1, "60s": 2, "120s": 3, "180s": 4, "300s": 5}
+    PROFILE_MAP = {"Perf": 0, "Balanced": 1, "Eco": 2, "Eco2": 3}
+
+    def __init__(
+        self,
+        inactivity_duration: int = 0,
+        power_profile: int = 1,
+        power_on_charging: int = 1
+    ):
+        self.inactivity_duration = inactivity_duration
+        self.power_profile = power_profile
+        self.power_on_charging = power_on_charging
+
+    def to_bytes(self) -> bytes:
+        """Build 128-byte user_settings_t struct with CRC."""
+        data = bytearray(self.STRUCT_SIZE)
+        data[0] = 3  # settings_number: 3 bytes of params
+        data[1] = self.inactivity_duration & 0xFF
+        data[2] = self.power_profile & 0xFF
+        data[3] = self.power_on_charging & 0xFF
+        # RFU bytes 4..126 = 0xFF
+        for i in range(4, self.STRUCT_SIZE - 1):
+            data[i] = 0xFF
+        # CRC-8 over first 127 bytes
+        data[self.STRUCT_SIZE - 1] = calculate_crc8(bytes(data[:self.STRUCT_SIZE - 1]))
+        return bytes(data)
