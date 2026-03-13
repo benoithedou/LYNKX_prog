@@ -229,9 +229,13 @@ class TestWorkflow:
             # Enter exclusive mode to block reader loops
             self._serial.enter_exclusive_mode()
 
-            # Validate device IDs
-            self._log("📋 Validating device IDs...")
-            config = self.validate_device_ids()
+            # Validate device IDs only if config write is needed
+            config = None
+            if write_config:
+                self._log("📋 Validating device IDs...")
+                config = self.validate_device_ids()
+            else:
+                self._log("⏭️  Device ID validation skipped (config disabled)")
 
             # Open serial if needed
             if not self._serial.is_open:

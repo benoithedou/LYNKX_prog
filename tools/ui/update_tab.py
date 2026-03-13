@@ -338,7 +338,8 @@ class UpdateTab:
             self.config_checkbox.configure(state="disabled")
         else:
             self.backup_label.configure(fg="gray")
-            # Re-enable config checkbox when backup is disabled
+            # Disable config by default when backup is off (user can re-enable)
+            self.en_config_var.set(False)
             self.config_checkbox.configure(state="normal")
 
     def _run_update(self) -> None:

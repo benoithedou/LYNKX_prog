@@ -21,7 +21,7 @@ class LYNKXCommand:
     FM_READ_LOG_CHUNK = 0x24
     FM_DELETE_LOG = 0x25
     FM_ERASE_ALL_BLOCKING = 0x26
-    FM_ERASE_ALL_STEP = 0x27
+    FM_ERASE_ALL_ASYNC = 0x27
     FM_GET_DEBUG_INFO = 0x28
 
     # Logger Commands
@@ -78,7 +78,64 @@ AES_BLOCK_SIZE = 256
 
 # File Manager Constants
 FM_LIST_PAGE_MAX = 16
-FM_READ_CHUNK_MAX = 20
+FM_READ_CHUNK_MAX = 120  # Max chunk size for READ_LOG_CHUNK (limited by BLE MTU)
+
+# Logger Log Types
+LOG_TYPE_RANDO = 0   # Randonnée/secours
+LOG_TYPE_PARA = 1    # Parapente/vol libre
+LOG_TYPE_DEBUG = 2   # Debug complet
+
+LOG_TYPE_NAMES = {0: "RANDO", 1: "PARA", 2: "DEBUG"}
+LOG_STATE_NAMES = {0: "OPEN", 1: "CLOSED", 2: "DELETED"}
+
+# Logger error labels (shared)
+LOGGER_ERROR_LABELS = {
+    0: "Aucune erreur",
+    1: "Logger pas demarre",
+    2: "Logger deja actif",
+    3: "Echec FileManager",
+    4: "Erreur serialisation",
+    5: "File vide",
+}
+
+# Flash memory layout
+LOG_DATA_BASE = 0x00046000
+LOG_DIR_BASE = 0x001F0000
+LOG_DIR_END = 0x00200000
+
+# Log file block types
+BLK_TIME_SYNC = 0x01
+BLK_STATUS = 0x02
+BLK_EVENT = 0x03
+BLK_GNSS_1HZ = 0x10
+BLK_BARO_1HZ = 0x11
+BLK_BARO_5HZ = 0x12
+BLK_ACCEL_SUMMARY = 0x20
+BLK_ACCEL_RAW = 0x21
+BLK_BLE_ANCHORS = 0x30
+BLK_BLE_PAYLOAD = 0x31
+BLK_LORAWAN_FRAME = 0x40
+BLK_LORA_P2P_FRAME = 0x41
+
+BLK_TYPE_NAMES = {
+    0x01: "TIME_SYNC", 0x02: "STATUS", 0x03: "EVENT",
+    0x10: "GNSS_1HZ", 0x11: "BARO_1HZ", 0x12: "BARO_5HZ",
+    0x20: "ACCEL_SUMMARY", 0x21: "ACCEL_RAW",
+    0x30: "BLE_ANCHORS", 0x31: "BLE_PAYLOAD",
+    0x40: "LORAWAN_FRAME", 0x41: "LORA_P2P_FRAME",
+}
+
+EVENT_ID_NAMES = {
+    0x01: "SHORT_CLIC", 0x02: "LONG_CLIC", 0x03: "DOUBLE_CLIC",
+    0x04: "TRIPLE_CLIC", 0x05: "SHORT_LONG_CLIC",
+    0x06: "EMERGENCY", 0x07: "EMERGENCY_TEST", 0x08: "EMERGENCY_END",
+    0x10: "SINGLE_TAP", 0x11: "DOUBLE_TAP",
+    0x14: "SLEEP", 0x15: "WAKE_UP",
+    0x20: "TAKEOFF_DETECTED", 0x21: "LANDING_DETECTED",
+    0x30: "BLE_CONNECTED", 0x31: "BLE_DISCONNECTED",
+    0x40: "GNSS_FIX_ACQUIRED", 0x41: "GNSS_FIX_LOST",
+    0x60: "UNPLUGGED", 0x61: "CHARGING",
+}
 
 # Test Names
 TEST_NAMES = [

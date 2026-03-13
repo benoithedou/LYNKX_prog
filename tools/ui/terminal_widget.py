@@ -1,5 +1,6 @@
 """Terminal widget for displaying output."""
 import os
+from datetime import datetime
 from tkinter import Text, Scrollbar, Frame, END, VERTICAL, BOTH, LEFT, RIGHT, Y, DISABLED, NORMAL
 from typing import Optional
 
@@ -85,7 +86,15 @@ class TerminalWidget:
         if last >= 0.99:
             self.auto_scroll = True
 
-    def add_line(self, line: str, pos=END, prefix: str = "") -> None:
+    # Source emoji mapping
+    SOURCE_EMOJI = {
+        'app':  '\U0001F4BB',  # 💻 application logic
+        'uart': '\U0001F4E1',  # 📡 serial data from device
+        'dbg':  '\U0001F50D',  # 🔍 protocol debug (TX/RX)
+        'err':  '\U0000274C',  # ❌ error
+    }
+
+    def add_line(self, line: str, pos=END, prefix: str = "", source: str = "app") -> None:
         """
         Add line to terminal.
 
@@ -93,8 +102,11 @@ class TerminalWidget:
             line: Line to add
             pos: Position to insert (default: END)
             prefix: Optional prefix for line
+            source: Origin tag for emoji: 'app', 'uart', 'dbg', 'err'
         """
-        full_line = f"{prefix}{line}" if prefix else line
+        ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        emoji = self.SOURCE_EMOJI.get(source, self.SOURCE_EMOJI['app'])
+        full_line = f"{emoji} [{ts}] {prefix}{line}"
 
         # Enable editing temporarily
         self.text.config(state=NORMAL)
